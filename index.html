@@ -1,0 +1,1151 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>خريطة الصيدليات - المندوبي والمسح الميداني</title>
+
+    <!-- Leaflet CSS for Map -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
+    <!-- Google Tajawal Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+
+    <!-- html2pdf Library for PDF Export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+    <style>
+        :root {
+            --primary: #1e88e5;
+            --primary-dark: #1565c0;
+            --secondary: #43a047;
+            --bg-dark: #121824;
+            --card-bg: #1e2738;
+            --text-color: #e0e6ed;
+            --text-muted: #8a99ad;
+            --border-color: #2a364f;
+            --accent-red: #e53935;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Tajawal', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-color);
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Sidebar Styles */
+        .sidebar {
+            width: 380px;
+            background-color: var(--card-bg);
+            border-left: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            z-index: 1000;
+            box-shadow: -2px 0 10px rgba(0,0,0,0.3);
+            transition: transform 0.3s ease;
+        }
+
+        .header {
+            padding: 20px;
+            background: linear-gradient(135deg, #1e88e5, #1565c0);
+            color: white;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .header p {
+            font-size: 12px;
+            opacity: 0.9;
+        }
+
+        /* Auto Load Banner */
+        .auto-banner {
+            display: none;
+            background-color: #2e7d32;
+            color: white;
+            font-size: 12px;
+            padding: 8px;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        /* Upload Section */
+        .upload-section {
+            padding: 15px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .drop-zone {
+            border: 2px dashed var(--primary);
+            border-radius: 12px;
+            padding: 12px;
+            text-align: center;
+            cursor: pointer;
+            background-color: rgba(30, 136, 229, 0.05);
+            transition: 0.2s;
+        }
+
+        .drop-zone:hover {
+            background-color: rgba(30, 136, 229, 0.15);
+        }
+
+        .drop-zone i {
+            font-size: 22px;
+            color: var(--primary);
+            margin-bottom: 6px;
+        }
+
+        .drop-zone p {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        /* Stats Bar */
+        .stats-bar {
+            display: flex;
+            justify-content: space-around;
+            padding: 10px 15px;
+            background-color: rgba(0, 0, 0, 0.2);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 18px;
+            font-weight: bold;
+            color: var(--primary);
+        }
+
+        .stat-label {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        /* Controls / Filters */
+        .filters {
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 10px 14px;
+            background-color: var(--bg-dark);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-color);
+            font-size: 13px;
+            outline: none;
+        }
+
+        .form-control:focus {
+            border-color: var(--primary);
+        }
+
+        /* PDF Export Button */
+        .btn-export-pdf {
+            width: 100%;
+            padding: 10px;
+            background: linear-gradient(135deg, #e53935, #c62828);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 13px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 5px;
+            transition: opacity 0.2s;
+        }
+
+        .btn-export-pdf:hover {
+            opacity: 0.9;
+        }
+
+        /* PDF Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+            direction: rtl;
+        }
+
+        .modal-content {
+            background-color: var(--card-bg);
+            border-radius: 16px;
+            width: 90%;
+            max-width: 480px;
+            padding: 20px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 10px;
+        }
+
+        .modal-header h3 {
+            font-size: 16px;
+            color: var(--text-color);
+        }
+
+        .close-btn {
+            font-size: 22px;
+            cursor: pointer;
+            color: var(--text-muted);
+        }
+
+        .pdf-preset-btn {
+            flex: 1;
+            padding: 8px;
+            background-color: var(--bg-dark);
+            border: 1px solid var(--primary);
+            color: var(--primary);
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .pdf-preset-btn:hover {
+            background-color: var(--primary);
+            color: white;
+        }
+
+        /* List Section */
+        .pharmacies-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px 15px;
+        }
+
+        .pharmacy-card {
+            background-color: var(--bg-dark);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 12px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .pharmacy-card:hover {
+            border-color: var(--primary);
+            transform: translateY(-2px);
+        }
+
+        .pharmacy-title {
+            font-weight: bold;
+            font-size: 14px;
+            color: #fff;
+            margin-bottom: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .badge {
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: normal;
+        }
+
+        .badge-ph { background-color: var(--primary); color: white; }
+        .badge-sr { background-color: var(--secondary); color: white; }
+
+        .pharmacy-info {
+            font-size: 12px;
+            color: var(--text-muted);
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            margin-top: 5px;
+        }
+
+        .pharmacy-info i {
+            width: 16px;
+            color: var(--primary);
+        }
+
+        /* Map Container */
+        #map {
+            flex: 1;
+            height: 100%;
+            background-color: #0b0f19;
+        }
+
+        /* Action Buttons */
+        .card-actions {
+            display: flex;
+            gap: 6px;
+            margin-top: 10px;
+        }
+
+        .btn-action {
+            flex: 1;
+            padding: 6px;
+            border: none;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            text-decoration: none;
+            color: white;
+        }
+
+        .btn-waze { background-color: #33ccff; color: #000; }
+        .btn-maps { background-color: #4285f4; }
+        .btn-call { background-color: #4caf50; }
+        .btn-wa { background-color: #25d366; }
+        .btn-share { background-color: #ff9800; color: white; }
+
+        /* Custom Popup styling */
+        .leaflet-popup-content-wrapper {
+            background-color: var(--card-bg) !important;
+            color: var(--text-color) !important;
+            border-radius: 12px !important;
+            padding: 5px !important;
+            border: 1px solid var(--border-color);
+        }
+
+        .leaflet-popup-tip {
+            background-color: var(--card-bg) !important;
+        }
+
+        .popup-content {
+            font-size: 13px;
+            direction: rtl;
+        }
+
+        .popup-title {
+            font-size: 15px;
+            font-weight: bold;
+            color: var(--primary);
+            margin-bottom: 8px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 4px;
+        }
+
+        /* Responsive Mobile Toggle */
+        .mobile-toggle {
+            display: none;
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            z-index: 1001;
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        @media (max-width: 768px) {
+            body { flex-direction: column; }
+            .sidebar {
+                position: fixed;
+                top: 0;
+                bottom: 0;
+                right: 0;
+                width: 100%;
+                max-width: 340px;
+                transform: translateX(100%);
+            }
+            .sidebar.open {
+                transform: translateX(0);
+            }
+            .mobile-toggle {
+                display: block;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <button class="mobile-toggle" onclick="toggleSidebar()">
+        <i class="fa-solid fa-bars"></i> القائمة والفلتر
+    </button>
+
+    <!-- Sidebar -->
+    <div class="sidebar" id="sidebar">
+        <div class="header">
+            <h1><i class="fa-solid fa-map-location-dot"></i> خريطة الصيدليات</h1>
+            <p>عرض وتحليل مواقع الصيدليات على الخريطة</p>
+        </div>
+
+        <div id="autoLoadBanner" class="auto-banner"></div>
+
+        <!-- File Upload -->
+        <div class="upload-section">
+            <div class="drop-zone" onclick="document.getElementById('fileInput').click()">
+                <i class="fa-solid fa-cloud-arrow-up"></i>
+                <p><strong>اختر ملف النسخة الاحتياطية (.csv)</strong></p>
+                <p style="font-size: 11px; margin-top: 2px;">يتم تحميل <code>backup.csv</code> تلقائياً إن وجد في GitHub</p>
+                <input type="file" id="fileInput" accept=".csv,.txt" style="display: none;" onchange="handleFileSelect(event)">
+            </div>
+        </div>
+
+        <!-- Stats Bar -->
+        <div class="stats-bar">
+            <div class="stat-item">
+                <div class="stat-value" id="statTotal">0</div>
+                <div class="stat-label">المجموع</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="statMapped">0</div>
+                <div class="stat-label">على الخريطة</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="statRegions">0</div>
+                <div class="stat-label">المناطق</div>
+            </div>
+        </div>
+
+        <!-- Search & Filters -->
+        <div class="filters">
+            <input type="text" id="searchInput" class="form-control" placeholder="🔍 بحث باسم الصيدلية أو الهاتف أو المنطقة..." aria-label="البحث" oninput="filterData()">
+
+            <div style="display: flex; gap: 8px;">
+                <select id="regionSelect" class="form-control" aria-label="اختر المنطقة" onchange="filterData()">
+                    <option value="">جميع المناطق</option>
+                </select>
+                <select id="typeSelect" class="form-control" aria-label="اختر المصدر" onchange="filterData()">
+                    <option value="">جميع المصادر</option>
+                    <option value="PH">صيدلياتي</option>
+                    <option value="SR">المسح الميداني</option>
+                </select>
+            </div>
+
+            <button class="btn-export-pdf" onclick="openPdfModal()">
+                <i class="fa-solid fa-file-pdf"></i> تصدير تقرير PDF
+            </button>
+        </div>
+
+        <!-- Pharmacies List -->
+        <div class="pharmacies-list" id="pharmaciesList">
+            <div style="text-align: center; color: var(--text-muted); padding: 30px 10px;">
+                <i class="fa-solid fa-spinner fa-spin" style="font-size: 30px; margin-bottom: 10px; color: var(--primary);"></i>
+                <p>جاري فحص وتلقيم النسخة الاحتياطية (backup.csv)...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Map View -->
+    <div id="map"></div>
+
+    <!-- PDF Modal -->
+    <div id="pdfModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-file-pdf" style="color:#e53935;"></i> تصدير تقرير PDF وتخصيص الأعمدة</h3>
+                <span class="close-btn" onclick="closePdfModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 10px;">حدد الأعمدة المراد تضمينها في ملف الـ PDF:</p>
+
+                <div class="column-checkboxes" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; background: var(--bg-dark); padding: 12px; border-radius: 10px; border: 1px solid var(--border-color);">
+                    <label style="font-size: 12px; display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                        <input type="checkbox" id="colName" checked disabled> اسم الصيدلية
+                    </label>
+                    <label style="font-size: 12px; display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                        <input type="checkbox" id="colRegion" checked> المنطقة
+                    </label>
+                    <label style="font-size: 12px; display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                        <input type="checkbox" id="colResp" checked> المسؤول
+                    </label>
+                    <label style="font-size: 12px; display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                        <input type="checkbox" id="colPhone" checked> رقم الهاتف
+                    </label>
+                    <label style="font-size: 12px; display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                        <input type="checkbox" id="colWaze"> رابط Waze
+                    </label>
+                    <label style="font-size: 12px; display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                        <input type="checkbox" id="colMaps"> رابط Google Maps
+                    </label>
+                </div>
+
+                <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 6px;">تطبيق تنسيق سريع:</p>
+
+                <div style="display: flex; gap: 8px; margin-bottom: 15px;">
+                    <button class="pdf-preset-btn" onclick="applyPreset(1)">
+                        المنطقة والصيدليات
+                    </button>
+                    <button class="pdf-preset-btn" onclick="applyPreset(2)">
+                        الصيدليات والمواقع
+                    </button>
+                </div>
+
+                <button class="btn-export-pdf" onclick="generatePdfCustom()">
+                    <i class="fa-solid fa-download"></i> تصدير وحفظ ملف PDF
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <script>
+        // Initialize Map
+        const map = L.map('map', {
+            center: [33.3152, 44.3661],
+            zoom: 12,
+            zoomControl: true,
+            scrollWheelZoom: true,
+            doubleClickZoom: true,
+            touchZoom: true
+        });
+
+        // Add 100% Free Esri World Street Map Layer
+        const esriStreet = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'Tiles &copy; Esri',
+            maxZoom: 19
+        });
+
+        // Add OSM Humanitarian Layer
+        const osmHot = L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+            maxZoom: 19
+        });
+
+        // Add Carto Light Layer
+        const cartoLight = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; OpenStreetMap &copy; CARTO',
+            subdomains: 'abcd',
+            maxZoom: 19
+        });
+
+        esriStreet.addTo(map);
+
+        L.control.layers({
+            "خريطة الشارع (Esri - مجاني وسريع)": esriStreet,
+            "خريطة الشارع الإنسانية (OSM HOT)": osmHot,
+            "خريطة Carto Light": cartoLight
+        }, null, { position: 'topleft' }).addTo(map);
+
+        let allData = [];
+        let currentFilteredData = [];
+        let markers = [];
+        let regionsHierarchy = {
+            mainToSubs: {},
+            allRegions: new Set()
+        };
+
+        // Auto Load backup.csv on startup when hosted on GitHub Pages
+        window.addEventListener('DOMContentLoaded', () => {
+            const candidates = ['backup.csv', 'data.csv', 'Mandoobi_Backup.csv'];
+            autoFetchBackup(candidates, 0);
+        });
+
+        function autoFetchBackup(files, index) {
+            if (index >= files.length) {
+                const listContainer = document.getElementById('pharmaciesList');
+                if (allData.length === 0 && listContainer) {
+                    listContainer.innerHTML = `
+                        <div style="text-align: center; color: var(--text-muted); padding: 30px 10px;">
+                            <i class="fa-solid fa-file-csv" style="font-size: 40px; margin-bottom: 10px; opacity: 0.5;"></i>
+                            <p>قم برفع ملف النسخة الاحتياطية (.csv) أو ضع ملف باسم <code>backup.csv</code> في مجلد المشروع في GitHub.</p>
+                        </div>`;
+                }
+                return;
+            }
+
+            fetch(files[index])
+                .then(res => {
+                    if (res.ok) return res.text();
+                    throw new Error('Not found');
+                })
+                .then(text => {
+                    if (text && text.trim().length > 0) {
+                        processBackupText(text);
+                        showAutoBanner(`تم تحميل (${files[index]}) تلقائياً من GitHub`);
+                    } else {
+                        autoFetchBackup(files, index + 1);
+                    }
+                })
+                .catch(() => {
+                    autoFetchBackup(files, index + 1);
+                });
+        }
+
+        function showAutoBanner(msg) {
+            const banner = document.getElementById('autoLoadBanner');
+            if (banner) {
+                banner.style.display = 'block';
+                banner.textContent = msg;
+                setTimeout(() => { banner.style.display = 'none'; }, 4000);
+            }
+        }
+
+        // Drag & Drop Handlers
+        const dropZone = document.querySelector('.drop-zone');
+        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.style.backgroundColor = 'rgba(30, 136, 229, 0.2)'; });
+        dropZone.addEventListener('dragleave', () => { dropZone.style.backgroundColor = 'rgba(30, 136, 229, 0.05)'; });
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.style.backgroundColor = 'rgba(30, 136, 229, 0.05)';
+            if (e.dataTransfer.files.length > 0) {
+                parseFile(e.dataTransfer.files[0]);
+            }
+        });
+
+        function handleFileSelect(event) {
+            if (event.target.files.length > 0) {
+                parseFile(event.target.files[0]);
+            }
+        }
+
+        function parseFile(file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                processBackupText(e.target.result);
+            };
+            reader.readAsText(file, 'UTF-8');
+        }
+
+        // Coordinate Sanitization (Iraq Bounds & Swapped Lat/Lng Fix)
+        function sanitizeCoordinates(lat, lng, url) {
+            lat = parseFloat(lat) || 0;
+            lng = parseFloat(lng) || 0;
+
+            if ((lat === 0 || lng === 0) && url) {
+                const match = url.match(/(?:@|query=|q=|ll=|loc:)(-?\d+\.\d+),(-?\d+\.\d+)/);
+                if (match) {
+                    lat = parseFloat(match[1]) || 0;
+                    lng = parseFloat(match[2]) || 0;
+                } else {
+                    const match2 = url.match(/(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)/);
+                    if (match2) {
+                        lat = parseFloat(match2[1]) || 0;
+                        lng = parseFloat(match2[2]) || 0;
+                    }
+                }
+            }
+
+            if (lat > 38.0 && lat < 49.0 && lng > 28.0 && lng < 38.5) {
+                const temp = lat;
+                lat = lng;
+                lng = temp;
+            }
+
+            if (Math.abs(lat) > 90 || Math.abs(lng) > 180) {
+                return { lat: 0, lng: 0 };
+            }
+
+            return { lat, lng };
+        }
+
+        // Reverse Geocoding District Estimator for Baghdad Coordinates
+        function getRegionFromCoordinates(lat, lng) {
+            if (!lat || !lng || lat === 0 || lng === 0) return 'غير محددة';
+
+            if (lat >= 33.35 && lat <= 33.41 && lng >= 44.30 && lng <= 44.36) return 'الكاظمية';
+            if (lat >= 33.35 && lat <= 33.41 && lng >= 44.36 && lng <= 44.42) return 'الأعظمية';
+            if (lat >= 33.29 && lat <= 33.35 && lng >= 44.28 && lng <= 44.35) return 'المنصور';
+            if (lat >= 33.29 && lat <= 33.34 && lng >= 44.35 && lng <= 44.41) return 'الكرادة';
+            if (lat >= 33.31 && lat <= 33.36 && lng >= 44.41 && lng <= 44.47) return 'زيونة وشارع فلسطين';
+            if (lat >= 33.34 && lat <= 33.42 && lng >= 44.43 && lng <= 44.53) return 'مدينة الصدر';
+            if (lat >= 33.22 && lat <= 33.29 && lng >= 44.37 && lng <= 44.46) return 'الدورة';
+            if (lat >= 33.23 && lat <= 33.29 && lng >= 44.29 && lng <= 44.37) return 'السيدية والبياع';
+            if (lat >= 33.32 && lat <= 33.38 && lng >= 44.25 && lng <= 44.32) return 'حي الجامعة والخضراء';
+
+            return 'بغداد';
+        }
+
+        function processBackupText(text) {
+            const lines = text.split('\n');
+            allData = [];
+            regionsHierarchy = { mainToSubs: {}, allRegions: new Set() };
+
+            const rawRegions = {};
+
+            lines.forEach(line => {
+                line = line.trim();
+                if (!line) return;
+
+                const parts = line.split('|~|');
+                if (parts.length < 2) return;
+
+                const type = parts[0];
+
+                if (type === 'RE') {
+                    const id = parts[1];
+                    const name = parts[2] ? parts[2].trim() : '';
+                    const parentId = parts[3] && parts[3] !== 'null' ? parts[3].trim() : null;
+                    if (id && name) {
+                        rawRegions[id] = { id, name, parentId };
+                    }
+                } else if (type === 'PH') {
+                    const id = parts[1];
+                    const name = parts[2] || 'بدون اسم';
+                    const resp = parts[3] || '';
+                    const phone = parts[4] || '';
+                    const link = parts[5] || '';
+                    const rawLat = parts[6] || '0';
+                    const rawLng = parts[7] || '0';
+                    const note = parts[8] || '';
+                    const cls = parts[9] ? parts[9].trim() : '';
+                    let region = parts[10] ? parts[10].trim() : '';
+                    const workTime = parts[11] || '';
+
+                    const coords = sanitizeCoordinates(rawLat, rawLng, link);
+
+                    // Sanitize Region Name (If region is A, B, C, D classification or empty, derive from coordinates or alt field)
+                    if (!region || ['A', 'B', 'C', 'D', 'A+', 'B+', 'C+', 'D+'].includes(region.toUpperCase()) || region.length <= 2) {
+                        if (cls && cls.length > 2 && !['A', 'B', 'C', 'D'].includes(cls.toUpperCase())) {
+                            region = cls;
+                        } else {
+                            region = getRegionFromCoordinates(coords.lat, coords.lng);
+                        }
+                    }
+
+                    if (region && region !== 'غير محددة') regionsHierarchy.allRegions.add(region);
+
+                    allData.push({
+                        type: 'PH',
+                        typeLabel: 'صيدلياتي',
+                        id, name, resp, phone, link,
+                        lat: coords.lat,
+                        lng: coords.lng,
+                        note, cls, region, workTime
+                    });
+                } else if (type === 'SR') {
+                    const name = parts[1] || 'استبيان';
+                    const doc = parts[2] || '';
+                    const phone = parts[4] || '';
+                    let region = parts[5] ? parts[5].trim() : '';
+                    const rawLat = parts[6] || '0';
+                    const rawLng = parts[7] || '0';
+                    const note = parts[9] || '';
+
+                    const coords = sanitizeCoordinates(rawLat, rawLng, '');
+
+                    if (!region || ['A', 'B', 'C', 'D'].includes(region.toUpperCase()) || region.length <= 2) {
+                        region = getRegionFromCoordinates(coords.lat, coords.lng);
+                    }
+
+                    if (region && region !== 'غير محددة') regionsHierarchy.allRegions.add(region);
+
+                    allData.push({
+                        type: 'SR',
+                        typeLabel: 'مسح ميداني',
+                        name, resp: doc ? 'د. ' + doc : '', phone, link: '',
+                        lat: coords.lat,
+                        lng: coords.lng,
+                        note, cls: 'استبيان', region, workTime: ''
+                    });
+                }
+            });
+
+            // Build hierarchy
+            Object.values(rawRegions).forEach(r => {
+                if (!r.parentId) {
+                    if (!regionsHierarchy.mainToSubs[r.name]) {
+                        regionsHierarchy.mainToSubs[r.name] = new Set();
+                    }
+                    regionsHierarchy.mainToSubs[r.name].add(r.name);
+                }
+            });
+
+            Object.values(rawRegions).forEach(r => {
+                if (r.parentId && rawRegions[r.parentId]) {
+                    const parentName = rawRegions[r.parentId].name;
+                    if (!regionsHierarchy.mainToSubs[parentName]) {
+                        regionsHierarchy.mainToSubs[parentName] = new Set();
+                        regionsHierarchy.mainToSubs[parentName].add(parentName);
+                    }
+                    regionsHierarchy.mainToSubs[parentName].add(r.name);
+                }
+            });
+
+            regionsHierarchy.allRegions.forEach(regName => {
+                let foundInMain = false;
+                Object.keys(regionsHierarchy.mainToSubs).forEach(mainName => {
+                    if (regionsHierarchy.mainToSubs[mainName].has(regName) || regName.startsWith(mainName)) {
+                        regionsHierarchy.mainToSubs[mainName].add(regName);
+                        foundInMain = true;
+                    }
+                });
+
+                if (!foundInMain) {
+                    const mainCandidate = regName.split(/[-/]/)[0].trim();
+                    if (mainCandidate && mainCandidate !== regName) {
+                        if (!regionsHierarchy.mainToSubs[mainCandidate]) {
+                            regionsHierarchy.mainToSubs[mainCandidate] = new Set();
+                            regionsHierarchy.mainToSubs[mainCandidate].add(mainCandidate);
+                        }
+                        regionsHierarchy.mainToSubs[mainCandidate].add(regName);
+                    } else {
+                        if (!regionsHierarchy.mainToSubs[regName]) {
+                            regionsHierarchy.mainToSubs[regName] = new Set();
+                            regionsHierarchy.mainToSubs[regName].add(regName);
+                        }
+                    }
+                }
+            });
+
+            // Populate Regions Dropdown
+            const regionSelect = document.getElementById('regionSelect');
+            regionSelect.innerHTML = '<option value="">جميع المناطق</option>';
+
+            const sortedMainNames = Object.keys(regionsHierarchy.mainToSubs).sort();
+
+            sortedMainNames.forEach(mainName => {
+                const subSet = regionsHierarchy.mainToSubs[mainName];
+
+                const mainOpt = document.createElement('option');
+                mainOpt.value = 'MAIN:' + mainName;
+                mainOpt.style.fontWeight = 'bold';
+                mainOpt.textContent = '🏠 ' + mainName + ' (الكل / كافة الفروع)';
+                regionSelect.appendChild(mainOpt);
+
+                Array.from(subSet).sort().forEach(subName => {
+                    if (subName !== mainName) {
+                        const subOpt = document.createElement('option');
+                        subOpt.value = 'SUB:' + subName;
+                        subOpt.textContent = '  ↳ ' + subName;
+                        regionSelect.appendChild(subOpt);
+                    }
+                });
+            });
+
+            filterData();
+        }
+
+        function filterData() {
+            const query = document.getElementById('searchInput').value.toLowerCase().trim();
+            const selectedRegionVal = document.getElementById('regionSelect').value;
+            const selectedType = document.getElementById('typeSelect').value;
+
+            currentFilteredData = allData.filter(item => {
+                const matchQuery = !query ||
+                    item.name.toLowerCase().includes(query) ||
+                    item.phone.includes(query) ||
+                    item.resp.toLowerCase().includes(query) ||
+                    item.region.toLowerCase().includes(query);
+
+                let matchRegion = true;
+                if (selectedRegionVal) {
+                    if (selectedRegionVal.startsWith('MAIN:')) {
+                        const mainName = selectedRegionVal.substring(5);
+                        const subSet = regionsHierarchy.mainToSubs[mainName];
+                        if (subSet) {
+                            matchRegion = subSet.has(item.region) || item.region.startsWith(mainName);
+                        } else {
+                            matchRegion = item.region.startsWith(mainName);
+                        }
+                    } else if (selectedRegionVal.startsWith('SUB:')) {
+                        const subName = selectedRegionVal.substring(4);
+                        matchRegion = item.region === subName;
+                    } else {
+                        matchRegion = item.region === selectedRegionVal;
+                    }
+                }
+
+                const matchType = !selectedType || item.type === selectedType;
+
+                return matchQuery && matchRegion && matchType;
+            });
+
+            renderListAndMap(currentFilteredData);
+        }
+
+        function renderListAndMap(data) {
+            document.getElementById('statTotal').textContent = data.length;
+            const mappedCount = data.filter(d => d.lat !== 0 && d.lng !== 0).length;
+            document.getElementById('statMapped').textContent = mappedCount;
+
+            const uniqueRegions = new Set(data.map(d => d.region)).size;
+            document.getElementById('statRegions').textContent = uniqueRegions;
+
+            markers.forEach(m => map.removeLayer(m));
+            markers = [];
+
+            const listContainer = document.getElementById('pharmaciesList');
+            listContainer.innerHTML = '';
+
+            if (data.length === 0) {
+                listContainer.innerHTML = '<div style="text-align:center; padding:20px; color:var(--text-muted);">لا توجد نتائج مطابقة لخيارات البحث.</div>';
+                return;
+            }
+
+            const bounds = [];
+
+            data.forEach((item, index) => {
+                const hasLocation = item.lat !== 0 && item.lng !== 0;
+
+                const card = document.createElement('div');
+                card.className = 'pharmacy-card';
+                card.onclick = () => focusPharmacy(index, item);
+
+                card.innerHTML = `
+                    <div class="pharmacy-title">
+                        <span>${item.name}</span>
+                        <span class="badge ${item.type === 'PH' ? 'badge-ph' : 'badge-sr'}">${item.typeLabel}</span>
+                    </div>
+                    <div class="pharmacy-info">
+                        ${item.resp ? `<div><i class="fa-solid fa-user"></i> ${item.resp}</div>` : ''}
+                        ${item.phone ? `<div><i class="fa-solid fa-phone"></i> ${item.phone}</div>` : ''}
+                        <div><i class="fa-solid fa-location-dot"></i> ${item.region}</div>
+                        ${hasLocation ? `<div style="color:var(--secondary);"><i class="fa-solid fa-map-pin"></i> موقع جغرافي متوفر</div>` : `<div style="color:var(--accent-red);"><i class="fa-solid fa-location-slash"></i> بدون موقع جغرافي</div>`}
+                    </div>
+                    <div class="card-actions" onclick="event.stopPropagation()">
+                        ${item.phone ? `<a href="tel:${item.phone}" class="btn-action btn-call"><i class="fa-solid fa-phone"></i> اتصال</a>` : ''}
+                        ${item.phone ? `<a href="https://wa.me/964${cleanPhone(item.phone)}" target="_blank" class="btn-action btn-wa"><i class="fa-brands fa-whatsapp"></i> واتساب</a>` : ''}
+                        ${hasLocation ? `<a href="https://waze.com/ul?ll=${item.lat},${item.lng}&navigate=yes" target="_blank" class="btn-action btn-waze"><i class="fa-solid fa-route"></i> Waze</a>` : ''}
+                        <button class="btn-action btn-share" onclick="sharePharmacy(${allData.indexOf(item)}, event)"><i class="fa-solid fa-share-nodes"></i> مشاركة</button>
+                    </div>
+                `;
+
+                listContainer.appendChild(card);
+
+                if (hasLocation) {
+                    bounds.push([item.lat, item.lng]);
+
+                    const markerColor = item.type === 'PH' ? '#1e88e5' : '#43a047';
+
+                    const customIcon = L.divIcon({
+                        className: 'custom-pin',
+                        html: `<div style="background-color:${markerColor}; width:24px; height:24px; border-radius:50%; border:2px solid white; box-shadow:0 0 5px rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; color:white; font-size:11px;"><i class="fa-solid fa-prescription-bottle-medical"></i></div>`,
+                        iconSize: [24, 24],
+                        iconAnchor: [12, 12]
+                    });
+
+                    const marker = L.marker([item.lat, item.lng], { icon: customIcon }).addTo(map);
+
+                    const popupHtml = `
+                        <div class="popup-content">
+                            <div class="popup-title">${item.name}</div>
+                            ${item.resp ? `<div><strong>المسؤول:</strong> ${item.resp}</div>` : ''}
+                            ${item.phone ? `<div><strong>الهاتف:</strong> ${item.phone}</div>` : ''}
+                            <div><strong>المنطقة:</strong> ${item.region}</div>
+                            ${item.workTime ? `<div><strong>المقابلة:</strong> ${item.workTime}</div>` : ''}
+                            ${item.note ? `<div><strong>ملاحظات:</strong> ${item.note}</div>` : ''}
+                            <div class="card-actions" style="margin-top:10px;">
+                                <a href="https://waze.com/ul?ll=${item.lat},${item.lng}&navigate=yes" target="_blank" class="btn-action btn-waze">Waze</a>
+                                <a href="https://www.google.com/maps/search/?api=1&query=${item.lat},${item.lng}" target="_blank" class="btn-action btn-maps">Google Maps</a>
+                                <button class="btn-action btn-share" onclick="sharePharmacy(${allData.indexOf(item)}, event)"><i class="fa-solid fa-share-nodes"></i> مشاركة</button>
+                            </div>
+                        </div>
+                    `;
+
+                    marker.bindPopup(popupHtml);
+                    item.marker = marker;
+                    markers.push(marker);
+                }
+            });
+
+            if (bounds.length > 0) {
+                map.fitBounds(bounds, { padding: [50, 50] });
+            }
+        }
+
+        function focusPharmacy(index, item) {
+            if (item.lat !== 0 && item.lng !== 0) {
+                map.setView([item.lat, item.lng], 16, { animate: true });
+                if (item.marker) {
+                    item.marker.openPopup();
+                }
+            } else {
+                alert("هذه الصيدلية لا تحتوي على موقع جغرافي مسجل.");
+            }
+
+            if (window.innerWidth <= 768) {
+                toggleSidebar();
+            }
+        }
+
+        function cleanPhone(phone) {
+            let clean = phone.replace('+', '').replace(/\s+/g, '').trim();
+            if (clean.startsWith('07')) {
+                clean = clean.substring(1);
+            }
+            return clean;
+        }
+
+        function sharePharmacy(itemIndex, event) {
+            if (event) event.stopPropagation();
+            const item = allData[itemIndex];
+            if (!item) return;
+
+            const hasLoc = item.lat !== 0 && item.lng !== 0;
+            const wazeLink = hasLoc
+                ? `https://waze.com/ul?ll=${item.lat},${item.lng}&navigate=yes`
+                : (item.link || 'غير متوفر');
+
+            const gMapsLink = hasLoc
+                ? `https://www.google.com/maps/search/?api=1&query=${item.lat},${item.lng}`
+                : (item.link || 'غير متوفر');
+
+            const msg = `📍 *بيانات الصيدلية*\n` +
+                `اسم الصيدلية: ${item.name}\n` +
+                (item.resp ? `المسؤول: ${item.resp}\n` : '') +
+                (item.phone ? `الهاتف: ${item.phone}\n` : '') +
+                `المنطقة: ${item.region}\n\n` +
+                `📍 *رابط Waze:* ${wazeLink}\n` +
+                `📍 *رابط Google Maps:* ${gMapsLink}`;
+
+            if (navigator.share) {
+                navigator.share({
+                    title: item.name,
+                    text: msg
+                }).catch(() => {});
+            } else {
+                navigator.clipboard.writeText(msg).then(() => {
+                    alert('تم نسخ بيانات ورابط موقع الصيدلية و Waze إلى الحافظة!\nيمكنك لصقها ورسالتها لأي شخص.');
+                }).catch(() => {
+                    prompt('يمكنك نسخ الرسالة أدناه:', msg);
+                });
+            }
+        }
+
+        function openPdfModal() {
+            document.getElementById('pdfModal').style.display = 'flex';
+        }
+
+        function closePdfModal() {
+            document.getElementById('pdfModal').style.display = 'none';
+        }
+
+        function applyPreset(presetType) {
+            document.getElementById('colRegion').checked = true;
+            if (presetType === 1) {
+                document.getElementById('colResp').checked = true;
+                document.getElementById('colPhone').checked = true;
+                document.getElementById('colWaze').checked = false;
+                document.getElementById('colMaps').checked = false;
+            } else if (presetType === 2) {
+                document.getElementById('colResp').checked = false;
+                document.getElementById('colPhone').checked = false;
+                document.getElementById('colWaze').checked = true;
+                document.getElementById('colMaps').checked = true;
+            }
+        }
+
+        function generatePdfCustom() {
+            closePdfModal();
+
+            const dataToExport = currentFilteredData.length > 0 ? currentFilteredData : allData;
+
+            if (dataToExport.length === 0) {
+                alert('لا توجد بيانات متاحة للتصدير!');
+                return;
+            }
+
+            const incRegion = document.getElementById('colRegion').checked;
+            const incResp = document.getElementById('colResp').checked;
+            const incPhone = document.getElementById('colPhone').checked;
+            const incWaze = document.getElementById('colWaze').checked;
+            const incMaps = document.getElementById('colMaps').checked;
+
+            const regionSelect = document.getElementById('regionSelect');
+            const selectedRegionText = regionSelect.options[regionSelect.selectedIndex] ? regionSelect.options[regionSelect.selectedIndex].text : 'جميع المناطق';
+
+            const pdfContainer = document.createElement('div');
+            pdfContainer.dir = 'rtl';
+            pdfContainer.style.padding = '20px';
+            pdfContainer.style.fontFamily = "'Tajawal', sans-serif";
+            pdfContainer.style.color = '#000';
+            pdfContainer.style.backgroundColor = '#fff';
+
+            let tableHeaders = `<th style="padding:8px; border:1px solid #ccc; width:30px; text-align:center;">#</th>`;
+            tableHeaders += `<th style="padding:8px; border:1px solid #ccc;">اسم الصيدلية</th>`;
+            if (incRegion) tableHeaders += `<th style="padding:8px; border:1px solid #ccc;">المنطقة</th>`;
+            if (incResp) tableHeaders += `<th style="padding:8px; border:1px solid #ccc;">المسؤول</th>`;
+            if (incPhone) tableHeaders += `<th style="padding:8px; border:1px solid #ccc;">رقم الهاتف</th>`;
+            if (incWaze) tableHeaders += `<th style="padding:8px; border:1px solid #ccc;">رابط Waze</th>`;
+            if (incMaps) tableHeaders += `<th style="padding:8px; border:1px solid #ccc;">رابط Google Maps</th>`;
+
+            const tableRows = dataToExport.map((item, idx) => {
+                const hasLoc = item.lat !== 0 && item.lng !== 0;
+                const wz = hasLoc ? `https://waze.com/ul?ll=${item.lat},${item.lng}&navigate=yes` : (item.link || '-');
+                const gm = hasLoc ? `https://www.google.com/maps/search/?api=1&query=${item.lat},${item.lng}` : (item.link || '-');
+
+                let rowCells = `<td style="padding:6px; border:1px solid #ccc; text-align:center;">${idx + 1}</td>`;
+                rowCells += `<td style="padding:6px; border:1px solid #ccc; font-weight:bold;">${item.name}</td>`;
+                if (incRegion) rowCells += `<td style="padding:6px; border:1px solid #ccc;">${item.region}</td>`;
+                if (incResp) rowCells += `<td style="padding:6px; border:1px solid #ccc;">${item.resp || '-'}</td>`;
+                if (incPhone) rowCells += `<td style="padding:6px; border:1px solid #ccc;">${item.phone || '-'}</td>`;
+                if (incWaze) rowCells += `<td style="padding:6px; border:1px solid #ccc; word-break:break-all;"><a href="${wz}" style="color:#0288d1; text-decoration:none;" target="_blank">${wz !== '-' ? 'فتح Waze' : 'غير متوفر'}</a></td>`;
+                if (incMaps) rowCells += `<td style="padding:6px; border:1px solid #ccc; word-break:break-all;"><a href="${gm}" style="color:#388e3c; text-decoration:none;" target="_blank">${gm !== '-' ? 'فتح Maps' : 'غير متوفر'}</a></td>`;
+
+                return `<tr style="background-color:${idx % 2 === 0 ? '#f9f9f9' : '#fff'};">${rowCells}</tr>`;
+            }).join('');
+
+            pdfContainer.innerHTML = `
+                <div style="text-align:center; margin-bottom:20px;">
+                    <h2 style="color:#1565c0; margin-bottom:5px; font-size:18px;">تقرير بيانات الصيدليات</h2>
+                    <p style="font-size:12px; color:#555;">المنطقة المحددة: ${selectedRegionText} | عدد الصيدليات: ${dataToExport.length}</p>
+                </div>
+                <table style="width:100%; border-collapse:collapse; font-size:10px; text-align:right;">
+                    <thead>
+                        <tr style="background-color:#1565c0; color:#fff;">
+                            ${tableHeaders}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${tableRows}
+                    </tbody>
+                </table>
+            `;
+
+            const opt = {
+                margin:       8,
+                filename:     'تقرير_الصيدليات.pdf',
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, useCORS: true },
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+
+            html2pdf().set(opt).from(pdfContainer).save();
+        }
+
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('open');
+        }
+    </script>
+</body>
+</html>
